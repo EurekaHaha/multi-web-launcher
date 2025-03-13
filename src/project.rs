@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use std::io::Result;
 use std::io::{ BufRead, BufReader };
 use std::thread;
+use crate::config::ProjectConfig;
 
 #[derive(Debug)]
 pub struct Project {
@@ -42,11 +43,11 @@ pub enum ProjectStatus {
 }
 
 impl Project {
-    pub fn new(name: &str, path: &str, start_command: &str) -> Self {
+    pub fn new(project_config: &ProjectConfig) -> Self {
         Self {
-            name: name.to_string(),
-            path: path.to_string(),
-            start_command: start_command.to_string(),
+            name: project_config.name.clone(),
+            path: project_config.path.clone(),
+            start_command: project_config.start_command.clone(),
             process: None,
             pid: None,
             status: ProjectStatus::Stopped,
@@ -99,6 +100,8 @@ impl Project {
                 let stdout = child.stdout.take().unwrap();
 
                 let project_name = self.name.clone();
+
+                // todo 之后这里要移动到其他地方 比如 日志系统
                 thread::spawn(move || {
                     let reader = BufReader::new(stdout);
                     for line in reader.lines() {
