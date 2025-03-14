@@ -11,17 +11,17 @@ use crate::config::ProjectConfig;
 #[derive(Debug)]
 pub struct Project {
     // 项目名称
-    name: String,
+    pub name: String,
     // 项目所在的文件系统路径
     path: String,
     // 启动项目的命令，通常是 node 命令
     start_command: String,
     // 当前运行的进程实例，如果项目未运行则为 None
-    process: Option<Child>,
+    pub process: Option<Child>,
     // 进程 ID，用于跟踪和管理进程
     pid: Option<u32>,
     // 项目当前的运行状态
-    status: ProjectStatus,
+    pub status: Status,
     // 项目最后一次启动的时间
     last_run_time: Option<std::time::SystemTime>,
     // 是否在进程意外终止时自动重启
@@ -35,7 +35,7 @@ pub enum Commands {
 }
 
 #[derive(Debug)]
-pub enum ProjectStatus {
+pub enum Status {
     Running,
     Stopped,
     Failed,
@@ -50,7 +50,7 @@ impl Project {
             start_command: project_config.start_command.clone(),
             process: None,
             pid: None,
-            status: ProjectStatus::Stopped,
+            status: Status::Stopped,
             last_run_time: None,
             auto_restart: false,
         }
@@ -58,7 +58,7 @@ impl Project {
 }
 
 impl Project {
-    fn set_status(&mut self, status: ProjectStatus) {
+    fn set_status(&mut self, status: Status) {
         self.status = status;
     }
 
@@ -97,29 +97,16 @@ impl Project {
                 .spawn()
         {
             Ok(mut child) => {
-                let stdout = child.stdout.take().unwrap();
-
-                let project_name = self.name.clone();
-
-                // todo 之后这里要移动到其他地方 比如 日志系统
-                thread::spawn(move || {
-                    let reader = BufReader::new(stdout);
-                    for line in reader.lines() {
-                        if let Ok(line) = line {
-                            println!("[{}]输出: {}", project_name, line);
-                        }
-                    }
-                });
 
                 self.set_pid(child.id());
                 self.set_process(Some(child));
-                self.set_status(ProjectStatus::Running);
+                self.set_status(Status::Running);
                 self.set_last_run_time(SystemTime::now());
 
                 Ok(())
             }
             Err(e) => {
-                self.set_status(ProjectStatus::Failed);
+                self.set_status(Status::Failed);
                 Err(e)
             }
         }
@@ -138,7 +125,7 @@ impl Project {
             }
         }
 
-        self.set_status(ProjectStatus::Stopped);
+        self.set_status(Status::Stopped);
         self.set_pid(0);
         self.set_process(None);
 
