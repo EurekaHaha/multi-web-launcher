@@ -10,6 +10,7 @@ pub struct ProjectConfig {
     pub start_command: String,
 }
 
+#[allow(dead_code)]
 pub struct Config {
     pub projects: Vec<ProjectConfig>,
 }
