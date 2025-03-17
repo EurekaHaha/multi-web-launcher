@@ -22,7 +22,7 @@ fn main() {
         project.start().expect("启动项目 {name} 失败");
         println!("{} 启动成功", name);
 
-        // todo: 此处所有权有问题 需要修改
+        // todo: 需要修改project的生命周期 使其能够存活在logs中
         let mut log = log::NodeLog::new(&mut project);
         log.log_start();
         logs.insert(name, log);
