@@ -15,8 +15,10 @@ pub struct Config {
     pub projects: Vec<ProjectConfig>,
 }
 
-impl ProjectConfig {
-    pub fn new() -> Self {
+pub struct ReadConfig;
+
+impl ReadConfig {
+    pub fn new() -> Vec<ProjectConfig> {
         let config_path = get_config_path("WORK_PROJECT_CONFIG");
         println!("Loading config: {}", config_path);
 
@@ -24,7 +26,7 @@ impl ProjectConfig {
 
         let reader = BufReader::new(file);
 
-        match serde_json::from_reader::<BufReader<File>, ProjectConfig>(reader) {
+        match serde_json::from_reader::<BufReader<File>, Vec<ProjectConfig>>(reader) {
             Ok(json) => json,
             Err(e) => {
                 panic!("Failed to parse config file: {}", e);
