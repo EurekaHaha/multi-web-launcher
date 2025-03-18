@@ -4,21 +4,21 @@ use std::collections::VecDeque;
 use std::thread;
 
 #[allow(unused)]
-pub struct NodeLog<'a> {
-    pub project: &'a mut Project,
+pub struct NodeLog {
+    pub project: Project,
     pub log_list: VecDeque<String>,
     pub status: Status,
     max_logs: usize,
 }
 
-impl<'a> NodeLog<'a> {
+impl NodeLog {
     pub fn set_status(&mut self, status: Status) {
         self.status = status;
     }
 }
 
-impl<'a> NodeLog<'a> {
-    pub fn new(project: &'a mut Project) -> Self {
+impl NodeLog {
+    pub fn new(project: Project) -> Self {
         Self {
             project,
             log_list: VecDeque::with_capacity(2000),

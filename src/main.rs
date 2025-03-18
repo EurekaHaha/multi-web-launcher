@@ -12,31 +12,37 @@ fn main() {
 
     println!("project_config: {:?}", project_config);
 
-    let mut project_hashmap: HashMap<_, _> = project_config.into_iter().map(|project: config::ProjectConfig| (project.name, project::Project::new(&project))).collect();
+    let mut logs: HashMap<String, log::NodeLog> = project_config
+        .into_iter()
+        .map(|project| {
+            let name = project.name.clone();
+            let mut project = project::Project::new(project);
 
-    // let mut proxy = project::Project::new(&project_config[0]);
-    let mut logs: HashMap<String, log::NodeLog<'_>> = HashMap::with_capacity(project_hashmap.len());
+            println!("正在启动: {:?}...", project);
+            project.start().expect(&format!("启动项目 {} 失败", name));
+            println!("{} 启动成功", name);
 
-    for (name, mut project) in project_hashmap {
-        println!("正在启动 {}...", name);
-        project.start().expect("启动项目 {name} 失败");
-        println!("{} 启动成功", name);
+            // * 之前的问题存在于project的所有权 如果把for循环内部的project的可变引用交给log for循环结束后project会被销毁 导致了悬垂引用
+            // * for循环还会消耗project_hashmap
+            let mut log = log::NodeLog::new(project);
+            log.log_start();
 
-        // todo: 需要修改project的生命周期 使其能够存活在logs中
-        let mut log = log::NodeLog::new(&mut project);
-        log.log_start();
-        logs.insert(name, log);
-    }
+            (name, log)
+        })
+        // * 将迭代器转化为HashMap collect可以根据标注类型生成数据
+        .collect();
 
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         if let Ok(l) = line {
             if l.trim() == "exit" {
-                
+                logs.iter_mut().for_each(|(_, log)| {
+                    log.project.stop().expect(&format!("停止项目 {} 失败", log.project.name));
+                });
+                break;
             }
         }
     }
 
     println!("程序已退出");
-
 }

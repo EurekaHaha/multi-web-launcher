@@ -43,7 +43,7 @@ pub enum Status {
 }
 
 impl Project {
-    pub fn new(project_config: &ProjectConfig) -> Self {
+    pub fn new(project_config: ProjectConfig) -> Self {
         Self {
             name: project_config.name.clone(),
             path: project_config.path.clone(),
@@ -84,7 +84,8 @@ impl Project {
 
         // 解析命令字符串
         let mut parts = self.start_command.split_whitespace();
-        let command = parts.next().unwrap_or("npm");
+        let command: &str = parts.next().unwrap_or("npm");
+        // * collect会将一个迭代器转化为标注的类型 此处标记的是Vec<&str>
         let args: Vec<&str> = parts.collect();
 
         // 执行命令
