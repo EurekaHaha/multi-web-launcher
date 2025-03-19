@@ -4,11 +4,16 @@ mod log;
 
 use std::collections::HashMap;
 use std::io::*;
+use sysinfo::System;
 
 fn main() {
     // * 测试启动
 
     let project_config = config::ReadConfig::new();
+    let mut sys = System::new();
+
+    sys.refresh_memory();
+    println!("剩余内存: {:?}MB", sys.free_memory() / 1024 / 1024);
 
     println!("project_config: {:?}", project_config);
 
@@ -35,11 +40,38 @@ fn main() {
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         if let Ok(l) = line {
-            if l.trim() == "exit" {
-                logs.iter_mut().for_each(|(_, log)| {
-                    log.project.stop().expect(&format!("停止项目 {} 失败", log.project.name));
-                });
-                break;
+            match l.trim() {
+                "exit" => {
+                    logs.iter_mut().for_each(|(_, log)| {
+                        log.project.stop().expect(&format!("停止项目 {} 失败", log.project.name));
+                    });
+                    break;
+                }
+                // * 匹配模式中的模式守卫
+                // * cmd 是一个变量绑定 它捕获的是l.trim()的值
+                // * if cmd.ends_with("exit") 是一个模式守卫 当这个守卫的条件为true的时候才会匹配成功
+                cmd if cmd.ends_with("exit") => {
+                    let project_name = cmd.trim_end_matches("exit");
+                    if let Some(log) = logs.get_mut(project_name) {
+                        log.project.stop().expect(&format!("停止项目 {} 失败", project_name));
+                        println!("{} 已停止", project_name);
+                    } else {
+                        println!("{} 不存在", project_name);
+                    }
+                }
+                cmd if cmd.starts_with("restart") => {
+                    let project_name: &str = cmd.trim_start_matches("restart");
+                    if let Some(log) = logs.get_mut(project_name) {
+                        if let project::Status::Running = log.project.status {
+                            log.project.stop().expect(&format!("停止项目 {} 失败", project_name));
+                        }
+                        log.project.start().expect(&format!("重新启动项目 {} 失败", project_name));
+                        println!("{} 已重新启动", project_name);
+                    } else {
+                        println!("{} 不存在", project_name);
+                    }
+                }
+                _ => {}
             }
         }
     }
