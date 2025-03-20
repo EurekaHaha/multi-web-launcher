@@ -9,6 +9,7 @@
         "name": "my_frontend_project",
         "path": "/",
         "start_command": "npm run dev",
+        "min_memory_usage": 128,
     }
 ]
 ```
