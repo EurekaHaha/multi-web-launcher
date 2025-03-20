@@ -32,6 +32,7 @@ impl NodeLog {
 
         println!("process: {:?}", process);
 
+        // todo 忘了打印error了
         match process {
             Some(ref mut process) => {
                 // @ 每个流只能take一次 take之后流的所有权就转移了

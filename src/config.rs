@@ -8,6 +8,7 @@ pub struct ProjectConfig {
     pub name: String,
     pub path: String,
     pub start_command: String,
+    pub min_memory_usage: u32,
 }
 
 #[allow(dead_code)]
