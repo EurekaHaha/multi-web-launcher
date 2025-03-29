@@ -5,10 +5,16 @@ use std::io::BufReader;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProjectConfig {
+    // 项目名称
     pub name: String,
+    // 项目所在的文件系统路径
     pub path: String,
+    // 启动项目的命令，通常是 node 命令
     pub start_command: String,
+    // 最小内存使用量，单位为 MB
     pub min_memory_usage: u32,
+    // 指定的node版本
+    pub node_version: Option<String>,
 }
 
 #[allow(dead_code)]

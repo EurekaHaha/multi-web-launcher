@@ -43,7 +43,7 @@ impl NodeLog {
                     panic!("stdout is None");
                 };
 
-                let project_name = self.project.name.clone();
+                let project_name = self.project.project_info.name.clone();
                 self.set_status(Status::Running);
 
                 thread::spawn(move || {

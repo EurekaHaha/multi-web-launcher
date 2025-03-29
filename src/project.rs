@@ -9,12 +9,7 @@ use crate::config::ProjectConfig;
 
 #[derive(Debug)]
 pub struct Project {
-    // 项目名称
-    pub name: String,
-    // 项目所在的文件系统路径
-    path: String,
-    // 启动项目的命令，通常是 node 命令
-    start_command: String,
+    pub project_info: ProjectConfig,
     // 当前运行的进程实例，如果项目未运行则为 None
     pub process: Option<Child>,
     // 进程 ID，用于跟踪和管理进程
@@ -25,7 +20,6 @@ pub struct Project {
     last_run_time: Option<std::time::SystemTime>,
     // 是否在进程意外终止时自动重启
     auto_restart: bool,
-    pub min_memory_usage: u32,
 }
 
 #[derive(Debug)]
@@ -37,12 +31,9 @@ pub enum Status {
 }
 
 impl Project {
-    pub fn new(project_config: ProjectConfig) -> Self {
+    pub fn new(project_info: ProjectConfig) -> Self {
         Self {
-            name: project_config.name,
-            path: project_config.path,
-            start_command: project_config.start_command,
-            min_memory_usage: project_config.min_memory_usage,
+            project_info: project_info,
             process: None,
             pid: None,
             status: Status::Stopped,
@@ -78,28 +69,30 @@ impl Project {
         }
 
         // 解析命令字符串
-        let mut parts = self.start_command.split_whitespace();
-        let command: &str = parts.next().unwrap_or("npm");
+        let mut parts = self.project_info.start_command.split_whitespace();
+        let command = parts.next().unwrap_or("npm").to_string();
         // * collect会将一个迭代器转化为标注的类型 此处标记的是Vec<&str>
         let args: Vec<&str> = parts.collect();
 
         sys.refresh_memory();
         let free_memory_mb = sys.free_memory() / 1024 / 1024;
-        let node_limit_memory = self.min_memory_usage;
+        let node_limit_memory = self.project_info.min_memory_usage;
         println!("当前空闲内存: {} MB", free_memory_mb);
-        println!("当前命令: {} {:?}", command, args);
+        println!("最小内存使用量: {} MB", node_limit_memory);
+
+        let program_command = match &self.project_info.node_version {
+            Some(v) => get_node_version_command(&v),
+            None => command,
+        };
 
         let node_version = get_node_version();
         println!("当前Node版本: {}", node_version);
-        change_node_version(Some(node_version));
-        let node_version = get_node_version();
-       println!("当前Node版本: {}", node_version);
         // 执行命令
         match
-            Command::new(command)
+            Command::new(program_command)
                 .args(&args)
-                .current_dir(&self.path)
-                // .env("NODE_OPTIONS", format!("--max_old_space_size={}", node_limit_memory))
+                .current_dir(&self.project_info.path)
+                .env("NODE_OPTIONS", format!("--max_old_space_size={}", node_limit_memory))
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .spawn()
@@ -124,7 +117,7 @@ impl Project {
         if let Some(mut process) = self.process.take() {
             match process.kill() {
                 Ok(_) => {
-                    println!("[{}]已停止", self.name);
+                    println!("[{}]已停止", self.project_info.name);
                 }
                 Err(e) => {
                     self.process = Some(process);
@@ -150,19 +143,12 @@ fn get_node_version() -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
-fn change_node_version(version: Option<String>) {
-    let version = match version {
-        Some(v) => v,
-        None => String::from("10.16.1"),
-    };
+fn get_node_version_command(version: &String) -> String {
+    // let version = match version {
+    //     Some(v) => v,
+    //     None => String::from("10.16.1"),
+    // };
     // * 还可以这么写
     // let version = version.unwrap_or_else(|| String::from("10.16.1"));
-    let nvm_path = "$HOME/.nvm/nvm.sh";
-    let command_str = format!("source {} && nvm use {}", nvm_path, version);
-
-    Command::new("bash")
-        .arg("-c")
-        .arg(command_str)
-        .output()
-        .expect("Failed to execute command");
+    format!("$HOME/.nvm/versions/node/v{}/bin/npm", version)
 }
