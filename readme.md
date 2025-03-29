@@ -10,6 +10,7 @@
         "path": "/",
         "start_command": "npm run dev",
         "min_memory_usage": 128,
+        "node_version": "10.16.1"
     }
 ]
 ```
