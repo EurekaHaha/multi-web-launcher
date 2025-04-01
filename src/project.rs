@@ -1,8 +1,7 @@
-
 use std::fmt::Debug;
-use std::process::{ Child, Command, Stdio };
-use std::time::SystemTime;
 use std::io::Result;
+use std::process::{Child, Command, Stdio};
+use std::time::SystemTime;
 use sysinfo::System;
 
 use crate::config::ProjectConfig;
@@ -28,6 +27,11 @@ pub enum Status {
     Stopped,
     Failed,
     Unknown,
+}
+
+pub enum CommandType {
+    Default(String),
+    Specific(String),
 }
 
 impl Project {
@@ -70,35 +74,33 @@ impl Project {
 
         // 解析命令字符串
         let mut parts = self.project_info.start_command.split_whitespace();
-        let command = parts.next().unwrap_or("npm").to_string();
+        let command_str = parts.next().unwrap_or("npm").to_string();
         // * collect会将一个迭代器转化为标注的类型 此处标记的是Vec<&str>
         let args: Vec<&str> = parts.collect();
 
         sys.refresh_memory();
-        let free_memory_mb = sys.free_memory() / 1024 / 1024;
         let node_limit_memory = self.project_info.min_memory_usage;
-        println!("当前空闲内存: {} MB", free_memory_mb);
+        println!("当前空闲内存: {} MB", sys.free_memory() / 1024 / 1024);
         println!("最小内存使用量: {} MB", node_limit_memory);
 
-        let program_command = match &self.project_info.node_version {
-            Some(v) => get_node_version_command(&v),
-            None => command,
-        };
+        println!("当前项目: {:?}", self.project_info.node_version);
 
-        let node_version = get_node_version();
-        println!("当前Node版本: {}", node_version);
+        let mut command = get_command_by_config(&self.project_info.node_version, command_str);
+        println!("当前Node版本: {}", get_node_version());
+
         // 执行命令
-        match
-            Command::new(program_command)
-                .args(&args)
-                .current_dir(&self.project_info.path)
-                .env("NODE_OPTIONS", format!("--max_old_space_size={}", node_limit_memory))
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
+        match command
+            .args(&args)
+            .current_dir(&self.project_info.path)
+            .env(
+                "NODE_OPTIONS",
+                format!("--max_old_space_size={}", node_limit_memory),
+            )
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
         {
             Ok(child) => {
-
                 self.set_pid(child.id());
                 self.set_process(Some(child));
                 self.set_status(Status::Running);
@@ -134,6 +136,32 @@ impl Project {
     }
 }
 
+fn get_command_by_config(version: &Option<String>, command_str: String) -> Command {
+    let program_command: CommandType = match version {
+        Some(v) => get_npm_version_command(&v),
+        None => CommandType::Default(command_str),
+    };
+
+    match program_command {
+        CommandType::Default(cmd) => Command::new(cmd),
+        CommandType::Specific(node_path) => {
+            let path = get_env_by_key("PATH").expect("PATH environment variable not set");
+            println!("PATH: {}", path);
+            println!("node_path: {}", node_path);
+            let mut cmd_obj = Command::new("npm");
+            cmd_obj.env("PATH", format!("{node_path}:{path}"));
+            cmd_obj
+        }
+    }
+}
+
+// 获取指定版本node的路径
+fn get_specific_version_node_path(version: &String) -> String {
+    let env = get_env_by_key("HOME").expect("HOME environment variable not set");
+
+    format!("{env}/.nvm/versions/node/v{}/bin", version)
+}
+
 fn get_node_version() -> String {
     let output = Command::new("node")
         .arg("-v")
@@ -143,12 +171,28 @@ fn get_node_version() -> String {
     String::from_utf8(output.stdout).unwrap()
 }
 
+fn get_npm_version_command(version: &String) -> CommandType {
+    CommandType::Specific(get_specific_version_node_path(version))
+}
+
+fn get_env_by_key(key: &str) -> Option<String> {
+    if let Ok(env) = std::env::var(key) {
+        Some(env)
+    } else {
+        None
+    }
+}
+
+// ************************ 暂时不使用 **************************
+
+#[allow(unused)]
 fn get_node_version_command(version: &String) -> String {
+    let env: String = get_env_by_key("HOME").expect("HOME environment variable not set");
     // let version = match version {
     //     Some(v) => v,
     //     None => String::from("10.16.1"),
     // };
     // * 还可以这么写
     // let version = version.unwrap_or_else(|| String::from("10.16.1"));
-    format!("$HOME/.nvm/versions/node/v{}/bin/npm", version)
+    format!("{env}/.nvm/versions/node/v{}/bin/npm", version)
 }

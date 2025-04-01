@@ -7,7 +7,9 @@ use std::io::*;
 use config::ProjectConfig;
 use sysinfo::System;
 
+
 fn main() {
+
     let project_config = config::ReadConfig::new();
     println!("project_config: {:?}", project_config);
 
