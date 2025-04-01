@@ -36,21 +36,38 @@ impl NodeLog {
         match process {
             Some(ref mut process) => {
                 // @ 每个流只能take一次 take之后流的所有权就转移了
-                let reader = if let Some(stdout) = process.stdout.take() {
+                let stdout_reader = if let Some(stdout) = process.stdout.take() {
                     BufReader::new(stdout)
                 } else {
                     self.project.stop().unwrap();
                     panic!("stdout is None");
                 };
 
-                let project_name = self.project.project_info.name.clone();
+                let stderr_reader = if let Some(stderr) = process.stderr.take() {
+                    BufReader::new(stderr)
+                } else {
+                    self.project.stop().unwrap();
+                    panic!("stderr is None");
+                };
+
+                let project_name_stdout = self.project.project_info.name.clone();
+                let project_name_stderr = self.project.project_info.name.clone();
                 self.set_status(Status::Running);
 
                 thread::spawn(move || {
-                    for line in reader.lines() {
+                    for line in stdout_reader.lines() {
                         if let Ok(line) = line {
                             // todo 这里之后不会直接打印到控制台 而是打印到一个新的UI中
-                            println!("[{}]输出: {}", project_name, line);
+                            println!("[{}]输出: {}", project_name_stdout, line);
+                        }
+                    }
+                });
+
+                thread::spawn(move || {
+                    for line in stderr_reader.lines() {
+                        if let Ok(line) = line {
+                            // todo 这里之后不会直接打印到控制台 而是打印到一个新的UI中
+                            println!("[{}]错误: {}", project_name_stderr, line);
                         }
                     }
                 });
