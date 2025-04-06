@@ -1,5 +1,5 @@
 use crate::project::{ Project, Status };
-use std::io::{ BufReader, BufRead };
+use std::io::{ BufReader, BufRead, Result, Error };
 use std::collections::VecDeque;
 use std::thread;
 
@@ -27,27 +27,26 @@ impl NodeLog {
         }
     }
 
-    pub fn log_start(&mut self) {
+    pub fn log_start(&mut self) -> Result<()> {
         let process: &mut Option<std::process::Child> = &mut self.project.process;
 
         println!("process: {:?}", process);
 
-        // todo 忘了打印error了
         match process {
+            // * rust和js不同 => 不是代表一个函数 是一个模式匹配指后面的表达式的值作为match的返回值 所以return是直接给整个函数返回的
             Some(ref mut process) => {
                 // @ 每个流只能take一次 take之后流的所有权就转移了
                 let stdout_reader = if let Some(stdout) = process.stdout.take() {
                     BufReader::new(stdout)
                 } else {
-                    self.project.stop().unwrap();
-                    panic!("stdout is None");
+                    return self.handle_error("stdout is None Log start failed")
                 };
+
 
                 let stderr_reader = if let Some(stderr) = process.stderr.take() {
                     BufReader::new(stderr)
                 } else {
-                    self.project.stop().unwrap();
-                    panic!("stderr is None");
+                    return self.handle_error("stderr is None Log start failed")
                 };
 
                 let project_name_stdout = self.project.project_info.name.clone();
@@ -71,10 +70,20 @@ impl NodeLog {
                         }
                     }
                 });
+                Result::Ok(())
             },
             None => {
-                println!("process is None");
+                self.handle_error("Process is None")
             }
         }
+    }
+
+    fn handle_error(&mut self, error: &str) -> Result<()> {
+        self.set_status(Status::Failed);
+        self.project.stop().unwrap();
+        Result::Err(Error::new(
+            std::io::ErrorKind::Other,
+            format!("Log start failed: {}", error),
+        ))
     }
 }

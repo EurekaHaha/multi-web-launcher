@@ -79,23 +79,22 @@ impl Project {
         let args: Vec<&str> = parts.collect();
 
         sys.refresh_memory();
-        let node_limit_memory = self.project_info.min_memory_usage;
+
         println!("当前空闲内存: {} MB", sys.free_memory() / 1024 / 1024);
-        println!("最小内存使用量: {} MB", node_limit_memory);
 
         println!("当前项目: {:?}", self.project_info.node_version);
 
-        let mut command = get_command_by_config(&self.project_info.node_version, command_str);
+        let mut command = get_command_by_config(
+            &self.project_info.node_version,
+            &self.project_info.min_memory_usage,
+            command_str,
+        );
+
         println!("当前Node版本: {}", get_node_version());
 
-        // 执行命令
         match command
             .args(&args)
             .current_dir(&self.project_info.path)
-            .env(
-                "NODE_OPTIONS",
-                format!("--max_old_space_size={}", node_limit_memory),
-            )
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
@@ -136,23 +135,35 @@ impl Project {
     }
 }
 
-fn get_command_by_config(version: &Option<String>, command_str: String) -> Command {
+fn get_command_by_config(
+    version: &Option<String>,
+    memories: &Option<u32>,
+    command_str: String,
+) -> Command {
+    println!("version: {:?}", version);
+    println!("command_str: {:?}", command_str);
     let program_command: CommandType = match version {
         Some(v) => get_npm_version_command(&v),
         None => CommandType::Default(command_str),
     };
 
-    match program_command {
+    // * command::env方法返回的是command的可变引用 如果需要command本身直接返回command即可
+    let mut ret_command = match program_command {
         CommandType::Default(cmd) => Command::new(cmd),
         CommandType::Specific(node_path) => {
-            let path = get_env_by_key("PATH").expect("PATH environment variable not set");
+            let path: String = get_env_by_key("PATH").expect("PATH environment variable not set");
             println!("PATH: {}", path);
             println!("node_path: {}", node_path);
             let mut cmd_obj = Command::new("npm");
             cmd_obj.env("PATH", format!("{node_path}:{path}"));
             cmd_obj
         }
+    };
+
+    if let Some(ref memories) = memories {
+        ret_command.env("NODE_OPTIONS", format!("--max_old_space_size={}", memories));
     }
+    ret_command
 }
 
 // 获取指定版本node的路径

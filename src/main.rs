@@ -69,7 +69,14 @@ fn start_project_and_log(project: ProjectConfig, sys: &mut System) -> (String, l
     // * 之前的问题存在于project的所有权 如果把for循环内部的project的可变引用交给log for循环结束后project会被销毁 导致了悬垂引用
     // * for循环还会消耗project_hashmap
     let mut log = log::NodeLog::new(project);
-    log.log_start();
+    match log.log_start() {
+        Ok(_) => {
+            println!("{} 日志监控成功", name);
+        }
+        Err(e) => {
+            println!("{} 日志监控失败: {}", name, e);
+        }
+    }
     print_sys_info(sys);
 
     (name, log)
